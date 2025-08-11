@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: lumin-ai-agent
+  profiles:
+    active: local
+
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: cn.xhm.luminaiagent.controller
+
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
