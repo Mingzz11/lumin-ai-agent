@@ -5,9 +5,11 @@ import cn.xhm.luminaiagent.chatmemory.MybatisPlusChatMemory;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
 
@@ -22,12 +24,6 @@ import static org.springframework.ai.chat.client.advisor.AbstractChatMemoryAdvis
 public class LoveApp {
 
     private final ChatClient chatClient;
-
-    @Resource
-    private VectorStore loveAppVectorStore;
-
-    @Resource
-    private Advisor loveAppRagCloudAdvisor;
 
     private static final String SYSTEM_PROMPT = "# 角色\n" +
             "你是一位深耕恋爱心理领域的专家，擅长解析情感问题并提供实用建议。你的专业能力在于帮助用户理解并解决他们在不同情感阶段遇到的问题。\n" +
@@ -84,7 +80,6 @@ public class LoveApp {
     }
 
 
-
     public String doChat(String message, String chatId) {
         ChatResponse response = chatClient
                 .prompt()
@@ -114,6 +109,12 @@ public class LoveApp {
         return loveReport;
     }
 
+    @Resource
+    private VectorStore loveAppVectorStore;
+
+    @Resource
+    private Advisor loveAppRagCloudAdvisor;
+
     public String doChatWithRag(String message, String chatId) {
         ChatResponse chatResponse = chatClient
                 .prompt()
@@ -123,12 +124,39 @@ public class LoveApp {
                 // 开启日志，便于观察效果
                 .advisors(new MyLoggerAdvisor())
 //                // 应用知识库问答
-//                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
-                // 应用增强检索服务（云知识库服务）
-                .advisors(loveAppRagCloudAdvisor)
+                .advisors(new QuestionAnswerAdvisor(loveAppVectorStore))
+//                // 应用增强检索服务（云知识库服务）
+//                .advisors(loveAppRagCloudAdvisor)
+                // rag应用 （基于 PgVector 向量存储）
+//                .advisors(new QuestionAnswerAdvisor(pgVectorVectorStore))
+                // 应用自定义的 RAG 检索增强服务（文档查询器 + 上下文增强器）
+//                .advisors(
+//                        LoveAppRagCustomAdvisorFactory.createLoveAppRagCustomAdvisor(
+//                                loveAppVectorStore, "单身"
+//                        )
+//                )
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult().getOutput().getText();
+        log.info("content: {}", content);
+        return content;
+    }
+
+    @Resource
+    private ToolCallback[] allTools;
+
+    public String doChatWithTools(String message, String chatId) {
+        ChatResponse response = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(CHAT_MEMORY_CONVERSATION_ID_KEY, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 10))
+                // 开启日志，便于观察效果
+                .advisors(new MyLoggerAdvisor())
+                .tools(allTools)
+                .call()
+                .chatResponse();
+        String content = response.getResult().getOutput().getText();
         log.info("content: {}", content);
         return content;
     }
